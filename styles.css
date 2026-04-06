@@ -87,3 +87,12 @@ header {
 .mood-btn.selected { border-color: var(--primary); background: var(--shadow); }
 .mood-btn img { width: 45px; }
 #mood-tags { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; }
+
+#detail-moods {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-top: 20px;
+}
+.detail-item {
+    margin-bottom: 10px;
+}
