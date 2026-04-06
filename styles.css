@@ -50,77 +50,28 @@ header {
 
 #current-date { text-align: left; opacity: 0.9; font-size: 0.9rem; }
 
-.tab-nav { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; }
-.tab-btn { flex: 1; padding: 1rem 0.5rem; border: none; background: none; font-size: 0.95rem; color: var(--text-light); cursor: pointer; font-weight: 600; white-space: nowrap; }
+.tab-nav { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); }
+.tab-btn { flex: 1; padding: 1rem 0.5rem; border: none; background: none; font-size: 0.95rem; color: var(--text-light); cursor: pointer; font-weight: 600; }
 .tab-btn.active { color: var(--primary); border-bottom: 3px solid var(--primary); }
 .tab-content { display: none; padding: 1rem; }
 .tab-content.active { display: block; }
 
-/* Check In */
-.mood-check-container { background: var(--surface); border-radius: 12px; padding: 1.5rem 1rem; margin-bottom: 1rem; box-shadow: 0 2px 4px var(--shadow); }
-.check-in-section h2 { text-align: center; margin-bottom: 1.5rem; color: var(--primary); font-size: 1.2rem; }
-.mood-buttons { display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
-.mood-btn { border: 2px solid transparent; background: none; cursor: pointer; transition: transform 0.2s; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 0.5rem; border-radius: 12px; }
-.mood-btn img { width: 50px; height: 50px; }
-.mood-btn.selected { transform: scale(1.05); background: var(--background); border: 2px solid var(--primary); }
-.tags-section input { width: 100%; padding: 0.8rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; }
-
 /* Calendar */
-.calendar-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; }
-.calendar-controls button { background: var(--primary); color: white; border: none; padding: 0.5rem 0.8rem; border-radius: 8px; cursor: pointer; font-size: 0.9rem; }
-#calendar-month { font-size: 1.1rem; }
+.calendar-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
 #calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-.calendar-day { aspect-ratio: 1; background: var(--surface); border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; font-size: 0.9rem; }
-.calendar-day.has-mood::after { content: ''; position: absolute; bottom: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--primary); }
-
-/* Trends */
-.trends-container { display: flex; flex-direction: column; gap: 1rem; }
-.trend-card { background: var(--surface); padding: 1rem; border-radius: 12px; box-shadow: 0 2px 4px var(--shadow); }
-.chart-bar { display: flex; align-items: center; margin-bottom: 0.5rem; }
-.chart-bar-label { width: 60px; font-size: 0.9rem; }
-.chart-bar-fill { height: 24px; border-radius: 12px; min-width: 24px; text-align: right; padding-right: 8px; color: white; font-size: 0.85rem; line-height: 24px; }
-.fill-good { background: var(--good); }
-.fill-neutral { background: var(--neutral); }
-.fill-bad { background: var(--bad); }
-.tag-badge { display: inline-block; background: var(--primary); color: white; padding: 4px 10px; border-radius: 12px; font-size: 0.85rem; margin: 4px; }
-
-/* Journal */
-.journal-controls { display: flex; flex-direction: column; gap: 10px; margin-bottom: 1rem; }
-#search-journal { width: 100%; padding: 0.8rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; }
-#new-entry-btn { background: var(--primary); color: white; border: none; padding: 0.8rem; border-radius: 8px; cursor: pointer; font-weight: 600; width: 100%; font-size: 1rem; }
-
-.journal-entry { background: var(--surface); padding: 1rem; border-radius: 12px; margin-bottom: 1rem; box-shadow: 0 2px 4px var(--shadow); cursor: pointer; }
-.entry-header { display: flex; justify-content: space-between; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 5px; }
-.entry-title { font-weight: bold; color: var(--primary); }
-.entry-date { color: var(--text-light); font-size: 0.85rem; }
-.entry-preview { font-size: 0.95rem; color: var(--text); }
-.entry-thumbnail { width: 100%; max-width: 200px; height: auto; border-radius: 8px; margin-top: 10px; }
-
-/* Mobile-First Full Screen Editor Modal */
-.journal-editor { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; background: var(--background); z-index: 9999; padding: 1rem; display: flex; flex-direction: column; overflow-y: auto; }
-.journal-editor.hidden { display: none; }
-#close-editor { align-self: flex-end; background: none; border: none; font-size: 2rem; cursor: pointer; color: var(--text-light); padding: 0.5rem; line-height: 1; margin-bottom: 0.5rem; }
-#entry-title, #entry-content { width: 100%; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1rem; font-size: 1rem; font-family: inherit; }
-#entry-content { flex: 1 1 auto; min-height: 200px; resize: vertical; }
-
-.attachment-section { margin-bottom: 1rem; }
-.hidden-input { display: none; }
-.file-label { display: inline-block; background: var(--secondary); color: white; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; }
-#photo-preview-container img { width: 100%; max-height: 300px; object-fit: contain; border-radius: 8px; margin-top: 1rem; background: var(--surface); }
-
-.editor-buttons { display: flex; gap: 1rem; margin-top: auto; padding-bottom: 1rem; }
-.editor-buttons button { flex: 1; padding: 1rem; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem; }
-#save-entry { background: var(--primary); color: white; }
-#cancel-entry { background: var(--border); color: var(--text); }
-
-/* Mobile specific tweaks */
-@media (min-width: 600px) {
-    .journal-controls { flex-direction: row; }
-    #new-entry-btn { width: auto; }
-    .journal-editor { max-width: 600px; left: 50%; transform: translateX(-50%); height: 100vh; box-shadow: 0 0 20px rgba(0,0,0,0.2); }
+.calendar-day { 
+    aspect-ratio: 1; 
+    background: var(--surface); 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    border-radius: 8px; 
+    font-size: 0.9rem;
+    cursor: pointer;
 }
-/* --- CALENDAR DAY DETAIL MODAL --- */
-/* This styles the popup that appears when you click a date */
+.calendar-day.has-mood { border: 2px solid var(--primary); font-weight: bold; }
+
+/* Modal Styling */
 .day-detail {
     position: fixed;
     top: 50%;
@@ -132,14 +83,11 @@ header {
     padding: 2rem;
     border-radius: 16px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    z-index: 2000; /* Ensures it sits on top of everything else */
+    z-index: 2000;
     border: 1px solid var(--border);
 }
 
-/* This class is toggled by app.js to show/hide the popup */
-.day-detail.hidden {
-    display: none;
-}
+.day-detail.hidden { display: none; }
 
 #close-detail {
     position: absolute;
@@ -152,41 +100,15 @@ header {
     border-radius: 50%;
     cursor: pointer;
     font-size: 1.2rem;
-    font-weight: bold;
-    color: var(--text-light);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
 }
 
-#close-detail:hover {
-    background: var(--border);
-    color: var(--primary);
-}
+#detail-date { color: var(--primary); margin-bottom: 1.5rem; border-bottom: 2px solid var(--background); padding-bottom: 0.5rem; }
+.detail-item { margin-bottom: 1rem; padding: 1rem; background: var(--background); border-radius: 12px; }
+.detail-item strong { display: block; color: var(--secondary); font-size: 0.8rem; text-transform: uppercase; margin-bottom: 0.25rem; }
 
-#detail-date {
-    color: var(--primary);
-    margin-bottom: 1.5rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 2px solid var(--background);
-    font-size: 1.25rem;
-}
-
-.detail-item {
-    margin-bottom: 1rem;
-    padding: 1rem;
-    background: var(--background);
-    border-radius: 12px;
-    font-size: 1rem;
-    color: var(--text);
-}
-
-.detail-item strong {
-    display: block;
-    color: var(--secondary);
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.25rem;
-    }
+/* Check In / Journal styles continue... */
+.mood-buttons { display: flex; justify-content: center; gap: 1rem; margin-bottom: 1rem; }
+.mood-btn { padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: white; cursor: pointer; }
+.mood-btn img { width: 40px; display: block; margin: 0 auto; }
+.mood-btn.selected { border-color: var(--primary); background: var(--shadow); }
+#mood-tags { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); }
