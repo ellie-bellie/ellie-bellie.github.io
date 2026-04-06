@@ -1,912 +1,365 @@
-const APP_VERSION = 1;
+const APP_VERSION = 1.3;
 
-// Storage keys
 const STORAGE_KEYS = {
     MOODS: 'mood_tracker_moods',
-    NOTES: 'mood_tracker_notes',
-    JOURNAL: 'mood_tracker_journal',
-    TAGS: 'mood_tracker_tags'
+    JOURNAL: 'mood_tracker_journal'
 };
 
-// State
 let currentDate = new Date();
 let selectedDate = new Date();
 let currentEditingEntry = null;
-let currentWeekStart = new Date();
-let currentPhotos = [];
-let allEntries = [];
+let isWeekView = false;
+let currentPhotoBase64 = null;
 
-// Initialize app
 document.addEventListener('DOMContentLoaded', () => {
     initApp();
-    registerServiceWorker();
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(console.error);
 });
 
 function initApp() {
     updateCurrentDate();
     setupTabs();
     setupCheckIns();
-    setupTags();
     setupCalendar();
     setupJournal();
-    setupTrends();
-    loadTodayData();
-    updateStreak();
-    
-    // Auto-save notes
-    document.getElementById('daily-notes').addEventListener('input', debounce(saveDailyNotes, 500));
-    
-    // Set up current week
-    currentWeekStart = getWeekStart(new Date());
+    setupExport();
+    calculateStreak();
+    renderTrends();
 }
 
-function registerServiceWorker() {
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(() => {
-            console.log('Service worker registration failed');
-        });
-    }
-}
-
-// Date utilities
+// --- UTILS ---
 function formatDate(date) {
-    return date.toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-    });
+    return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 }
-
 function getDateKey(date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
-
-function getWeekStart(date) {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day;
-    return new Date(d.setDate(diff));
-}
-
-function addDays(date, days) {
-    const result = new Date(date);
-    result.setDate(result.getDate() + days);
-    return result;
-}
-
 function updateCurrentDate() {
     document.getElementById('current-date').textContent = formatDate(new Date());
 }
 
-// Tab navigation
+// --- TABS ---
 function setupTabs() {
-    const tabBtns = document.querySelectorAll('.tab-btn');
-    const tabContents = document.querySelectorAll('.tab-content');
-    
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tabId = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            e.target.classList.add('active');
+            document.getElementById(e.target.dataset.tab).classList.add('active');
             
-            tabBtns.forEach(b => b.classList.remove('active'));
-            tabContents.forEach(c => c.classList.remove('active'));
-            
-            btn.classList.add('active');
-            document.getElementById(tabId).classList.add('active');
-            
-            if (tabId === 'calendar') {
-                renderCalendar();
-            } else if (tabId === 'journal') {
-                renderJournalEntries();
-            } else if (tabId === 'trends') {
-                renderTrends();
-            }
+            if(e.target.dataset.tab === 'trends') renderTrends();
         });
     });
 }
 
-// Streak counter
-function updateStreak() {
-    const moods = getAllMoods();
-    const dates = Object.keys(moods).sort().reverse();
+// --- 1. STREAKS ---
+function calculateStreak() {
+    const moods = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOODS) || '{}');
+    const dates = Object.keys(moods).sort((a, b) => new Date(b) - new Date(a));
     
     let streak = 0;
-    const today = getDateKey(new Date());
-    let checkDate = new Date();
+    let today = new Date();
+    today.setHours(0,0,0,0);
     
-    // Check if we have today's data
-    const todayMoods = moods[today] || {};
-    const hasTodayData = Object.keys(todayMoods).length > 0;
+    let checkDate = new Date(today);
+    let todayKey = getDateKey(today);
     
-    // Start from yesterday if no data today, otherwise start from today
-    if (!hasTodayData) {
-        checkDate = addDays(checkDate, -1);
-    }
-    
-    // Count consecutive days with data
-    while (true) {
-        const key = getDateKey(checkDate);
-        const dayMoods = moods[key] || {};
-        
-        if (Object.keys(dayMoods).length === 0) {
-            break;
-        }
-        
+    // If today is missed, streak might still be alive from yesterday
+    if (!moods[todayKey]) checkDate.setDate(checkDate.getDate() - 1);
+
+    while (moods[getDateKey(checkDate)]) {
         streak++;
-        checkDate = addDays(checkDate, -1);
+        checkDate.setDate(checkDate.getDate() - 1);
     }
     
-    document.getElementById('streak-count').textContent = streak;
+    document.getElementById('streak-counter').textContent = `🔥 ${streak} Day Streak`;
 }
 
-// Check-in functionality
+// --- 2 & 7. CHECK INS & TAGS ---
 function setupCheckIns() {
-    const moodButtons = document.querySelectorAll('.mood-btn');
-    
-    moodButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const meal = btn.closest('.mood-buttons').dataset.meal;
-            const mood = btn.dataset.mood;
+    const tagsInput = document.getElementById('mood-tags');
+    document.querySelectorAll('.mood-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+            const button = e.currentTarget;
+            button.classList.add('selected');
             
-            // Remove selected from siblings
-            btn.closest('.mood-buttons').querySelectorAll('.mood-btn').forEach(b => {
-                b.classList.remove('selected');
-            });
+            const mood = button.dataset.mood;
+            const tags = tagsInput.value.split(',').map(t => t.trim()).filter(t => t !== "");
             
-            btn.classList.add('selected');
-            saveMood(meal, mood);
-            updateCheckStatus(meal);
-            updateDailyAverage();
-            updateStreak();
-        });
-    });
-}
-
-function setupTags() {
-    const tagButtons = document.querySelectorAll('.tag-btn');
-    
-    tagButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const meal = btn.closest('.tags-section').dataset.meal;
-            const tag = btn.dataset.tag;
+            const moods = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOODS) || '{}');
+            const todayKey = getDateKey(new Date());
             
-            btn.classList.toggle('selected');
-            saveTags(meal, getSelectedTags(meal));
+            moods[todayKey] = { mood, tags, timestamp: new Date().toISOString() };
+            localStorage.setItem(STORAGE_KEYS.MOODS, JSON.stringify(moods));
+            
+            calculateStreak(); // Update streak immediately
+            alert('Check-in saved!');
         });
     });
 }
 
-function getSelectedTags(meal) {
-    const section = document.querySelector(`.tags-section[data-meal="${meal}"]`);
-    const selected = section.querySelectorAll('.tag-btn.selected');
-    return Array.from(selected).map(btn => btn.dataset.tag);
-}
-
-function saveTags(meal, tags) {
-    const dateKey = getDateKey(new Date());
-    const allTags = getAllTags();
-    
-    if (!allTags[dateKey]) {
-        allTags[dateKey] = {};
-    }
-    
-    allTags[dateKey][meal] = tags;
-    localStorage.setItem(STORAGE_KEYS.TAGS, JSON.stringify(allTags));
-}
-
-function getAllTags() {
-    const stored = localStorage.getItem(STORAGE_KEYS.TAGS);
-    return stored ? JSON.parse(stored) : {};
-}
-
-function getTagsForDate(date) {
-    const tags = getAllTags();
-    return tags[getDateKey(date)] || {};
-}
-
-function saveMood(meal, mood) {
-    const dateKey = getDateKey(new Date());
-    const moods = getAllMoods();
-    
-    if (!moods[dateKey]) {
-        moods[dateKey] = {};
-    }
-    
-    moods[dateKey][meal] = mood;
-    localStorage.setItem(STORAGE_KEYS.MOODS, JSON.stringify(moods));
-}
-
-function getAllMoods() {
-    const stored = localStorage.getItem(STORAGE_KEYS.MOODS);
-    return stored ? JSON.parse(stored) : {};
-}
-
-function getMoodsForDate(date) {
-    const moods = getAllMoods();
-    return moods[getDateKey(date)] || {};
-}
-
-function updateCheckStatus(meal) {
-    const status = document.querySelector(`.check-status[data-meal="${meal}"]`);
-    status.textContent = '✓ Checked';
-    status.classList.add('checked');
-}
-
-function updateDailyAverage() {
-    const today = getMoodsForDate(new Date());
-    const meals = ['breakfast', 'lunch', 'dinner'];
-    const checkedMeals = meals.filter(m => today[m]);
-    
-    if (checkedMeals.length === 0) {
-        document.getElementById('average-display').textContent = 'No check-ins yet';
-        return;
-    }
-    
-    const moodValues = { good: 1, neutral: 0, bad: -1 };
-    const sum = checkedMeals.reduce((acc, meal) => acc + moodValues[today[meal]], 0);
-    const avg = sum / checkedMeals.length;
-    
-    let icon, text, color;
-    if (avg > 0.3) {
-        icon = 'good.png';
-        text = 'Good';
-        color = 'var(--good)';
-    } else if (avg < -0.3) {
-        icon = 'bad.png';
-        text = 'Rough';
-        color = 'var(--bad)';
-    } else {
-        icon = 'neutral.png';
-        text = 'Okay';
-        color = 'var(--neutral)';
-    }
-    
-    const display = document.getElementById('average-display');
-    display.innerHTML = `<img src="${icon}" alt="${text}" style="width: 64px; height: 64px; margin-bottom: 0.5rem;"><br><span style="color: ${color}; font-size: 1.5rem;">${text}</span>`;
-}
-
-function loadTodayData() {
-    const today = getMoodsForDate(new Date());
-    const todayTags = getTagsForDate(new Date());
-    
-    // Load moods
-    ['breakfast', 'lunch', 'dinner'].forEach(meal => {
-        if (today[meal]) {
-            const btn = document.querySelector(`.mood-buttons[data-meal="${meal}"] .mood-btn[data-mood="${today[meal]}"]`);
-            if (btn) {
-                btn.classList.add('selected');
-                updateCheckStatus(meal);
-            }
-        }
-        
-        // Load tags
-        if (todayTags[meal]) {
-            const section = document.querySelector(`.tags-section[data-meal="${meal}"]`);
-            todayTags[meal].forEach(tag => {
-                const tagBtn = section.querySelector(`.tag-btn[data-tag="${tag}"]`);
-                if (tagBtn) {
-                    tagBtn.classList.add('selected');
-                }
-            });
-        }
+// --- 3. EXPORT DATA ---
+function setupExport() {
+    document.getElementById('export-btn').addEventListener('click', () => {
+        const data = {
+            moods: JSON.parse(localStorage.getItem(STORAGE_KEYS.MOODS) || '{}'),
+            journal: JSON.parse(localStorage.getItem(STORAGE_KEYS.JOURNAL) || '[]')
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `MoodTracker_Export_${getDateKey(new Date())}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
     });
-    
-    // Load notes
-    const notes = getAllNotes();
-    const dateKey = getDateKey(new Date());
-    if (notes[dateKey]) {
-        document.getElementById('daily-notes').value = notes[dateKey];
-    }
-    
-    updateDailyAverage();
 }
 
-// Daily notes
-function saveDailyNotes() {
-    const dateKey = getDateKey(new Date());
-    const notes = getAllNotes();
-    const content = document.getElementById('daily-notes').value;
-    
-    if (content.trim()) {
-        notes[dateKey] = content;
-    } else {
-        delete notes[dateKey];
-    }
-    
-    localStorage.setItem(STORAGE_KEYS.NOTES, JSON.stringify(notes));
-}
-
-function getAllNotes() {
-    const stored = localStorage.getItem(STORAGE_KEYS.NOTES);
-    return stored ? JSON.parse(stored) : {};
-}
-
-// Trends
-function setupTrends() {
-    document.querySelectorAll('.view-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            renderTrends();
-        });
-    });
-    
-    document.getElementById('prev-week').addEventListener('click', () => {
-        currentWeekStart = addDays(currentWeekStart, -7);
-        renderTrends();
-    });
-    
-    document.getElementById('next-week').addEventListener('click', () => {
-        currentWeekStart = addDays(currentWeekStart, 7);
-        renderTrends();
-    });
-    
-    document.getElementById('export-data-btn').addEventListener('click', exportData);
-}
-
-function renderTrends() {
-    const activeView = document.querySelector('.view-btn.active').dataset.view;
-    
-    if (activeView === 'week') {
-        renderWeekView();
-    } else {
-        renderMonthView();
-    }
-    
-    renderStats(activeView);
-}
-
-function renderWeekView() {
-    const weekEnd = addDays(currentWeekStart, 6);
-    document.getElementById('week-range').textContent = 
-        `${currentWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-    
-    const chart = document.getElementById('week-chart');
-    chart.innerHTML = '';
-    
-    const moods = getAllMoods();
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    
-    for (let i = 0; i < 7; i++) {
-        const date = addDays(currentWeekStart, i);
-        const dateKey = getDateKey(date);
-        const dayMoods = moods[dateKey] || {};
-        
-        const dayEl = document.createElement('div');
-        dayEl.className = 'week-day';
-        
-        const label = document.createElement('div');
-        label.className = 'week-day-label';
-        label.textContent = `${days[i]} ${date.getDate()}`;
-        
-        const moodsContainer = document.createElement('div');
-        moodsContainer.className = 'week-day-moods';
-        
-        ['breakfast', 'lunch', 'dinner'].forEach(meal => {
-            if (dayMoods[meal]) {
-                const icon = document.createElement('img');
-                icon.src = `${dayMoods[meal]}.png`;
-                icon.className = 'week-mood-icon';
-                icon.alt = dayMoods[meal];
-                moodsContainer.appendChild(icon);
-            }
-        });
-        
-        if (moodsContainer.children.length === 0) {
-            moodsContainer.innerHTML = '<span style="color: var(--text-light); font-size: 0.9rem;">No data</span>';
-        }
-        
-        dayEl.appendChild(label);
-        dayEl.appendChild(moodsContainer);
-        chart.appendChild(dayEl);
-    }
-}
-
-function renderMonthView() {
-    // For month view, show the whole current month
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    
-    document.getElementById('week-range').textContent = 
-        currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    
-    const chart = document.getElementById('week-chart');
-    chart.innerHTML = '<div style="color: var(--text-light); text-align: center; padding: 2rem;">Month view shows aggregated stats below</div>';
-}
-
-function renderStats(period) {
-    const moods = getAllMoods();
-    const tags = getAllTags();
-    let dates = [];
-    
-    if (period === 'week') {
-        for (let i = 0; i < 7; i++) {
-            dates.push(getDateKey(addDays(currentWeekStart, i)));
-        }
-    } else {
-        // Month
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
-        const lastDay = new Date(year, month + 1, 0).getDate();
-        for (let i = 1; i <= lastDay; i++) {
-            dates.push(getDateKey(new Date(year, month, i)));
-        }
-    }
-    
-    // Calculate mood breakdown
-    let goodCount = 0, neutralCount = 0, badCount = 0, totalCheckins = 0;
-    
-    dates.forEach(dateKey => {
-        const dayMoods = moods[dateKey] || {};
-        Object.values(dayMoods).forEach(mood => {
-            totalCheckins++;
-            if (mood === 'good') goodCount++;
-            else if (mood === 'neutral') neutralCount++;
-            else if (mood === 'bad') badCount++;
-        });
-    });
-    
-    if (totalCheckins === 0) {
-        document.getElementById('period-breakdown').textContent = 'No data';
-    } else {
-        const goodPct = Math.round((goodCount / totalCheckins) * 100);
-        const neutralPct = Math.round((neutralCount / totalCheckins) * 100);
-        const badPct = Math.round((badCount / totalCheckins) * 100);
-        document.getElementById('period-breakdown').innerHTML = `
-            <div style="font-size: 0.95rem; line-height: 1.8;">
-                <div style="color: var(--good);">😊 ${goodPct}% Good</div>
-                <div style="color: var(--neutral);">😐 ${neutralPct}% Neutral</div>
-                <div style="color: var(--bad);">😔 ${badPct}% Bad</div>
-            </div>
-        `;
-    }
-    
-    // Calculate common tags
-    const tagCounts = {};
-    dates.forEach(dateKey => {
-        const dayTags = tags[dateKey] || {};
-        Object.values(dayTags).forEach(mealTags => {
-            mealTags.forEach(tag => {
-                tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-            });
-        });
-    });
-    
-    const sortedTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
-    if (sortedTags.length === 0) {
-        document.getElementById('common-tags').textContent = 'No tags';
-    } else {
-        document.getElementById('common-tags').innerHTML = sortedTags
-            .map(([tag, count]) => `<div style="font-size: 0.9rem;">${tag} (${count}×)</div>`)
-            .join('');
-    }
-    
-    // Check-in rate
-    const daysWithData = dates.filter(dateKey => {
-        const dayMoods = moods[dateKey] || {};
-        return Object.keys(dayMoods).length > 0;
-    }).length;
-    
-    const rate = Math.round((daysWithData / dates.length) * 100);
-    document.getElementById('checkin-rate').textContent = `${rate}% (${daysWithData}/${dates.length} days)`;
-}
-
-function exportData() {
-    const data = {
-        moods: getAllMoods(),
-        notes: getAllNotes(),
-        tags: getAllTags(),
-        journal: getAllJournalEntries(),
-        exportDate: new Date().toISOString()
-    };
-    
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `mood-tracker-export-${getDateKey(new Date())}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-}
-
-// Calendar
+// --- 4. WEEK/MONTH CALENDAR VIEW ---
 function setupCalendar() {
+    const viewBtn = document.getElementById('toggle-view-btn');
+    viewBtn.addEventListener('click', () => {
+        isWeekView = !isWeekView;
+        viewBtn.textContent = isWeekView ? 'Month View' : 'Week View';
+        renderCalendar();
+    });
+    
     document.getElementById('prev-month').addEventListener('click', () => {
-        currentDate.setMonth(currentDate.getMonth() - 1);
+        selectedDate.setMonth(selectedDate.getMonth() - 1);
         renderCalendar();
     });
-    
     document.getElementById('next-month').addEventListener('click', () => {
-        currentDate.setMonth(currentDate.getMonth() + 1);
+        selectedDate.setMonth(selectedDate.getMonth() + 1);
         renderCalendar();
     });
     
-    document.getElementById('close-detail').addEventListener('click', () => {
-        document.getElementById('day-detail').classList.add('hidden');
-    });
+    renderCalendar();
 }
 
 function renderCalendar() {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    
-    // Update month display
-    document.getElementById('calendar-month').textContent = 
-        currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    
     const grid = document.getElementById('calendar-grid');
+    const monthLabel = document.getElementById('calendar-month');
     grid.innerHTML = '';
     
-    // Day headers
-    ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach(day => {
-        const header = document.createElement('div');
-        header.className = 'calendar-day header';
-        header.textContent = day;
-        grid.appendChild(header);
-    });
+    monthLabel.textContent = selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     
-    // Get first day of month and number of days
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const daysInPrevMonth = new Date(year, month, 0).getDate();
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth();
+    const moods = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOODS) || '{}');
     
-    const today = new Date();
-    const moods = getAllMoods();
+    let daysToRender = [];
     
-    // Previous month days
-    for (let i = firstDay - 1; i >= 0; i--) {
-        const day = document.createElement('div');
-        day.className = 'calendar-day other-month';
-        day.textContent = daysInPrevMonth - i;
-        grid.appendChild(day);
-    }
-    
-    // Current month days
-    for (let i = 1; i <= daysInMonth; i++) {
-        const day = document.createElement('div');
-        day.className = 'calendar-day';
-        
-        const date = new Date(year, month, i);
-        const dateKey = getDateKey(date);
-        const dayMoods = moods[dateKey];
-        
-        // Check if today
-        if (date.toDateString() === today.toDateString()) {
-            day.classList.add('today');
+    if (isWeekView) {
+        // Find start of current week (Sunday)
+        const currentDay = new Date(selectedDate);
+        const firstDayOfWeek = new Date(currentDay.setDate(currentDay.getDate() - currentDay.getDay()));
+        for (let i = 0; i < 7; i++) {
+            daysToRender.push(new Date(firstDayOfWeek));
+            firstDayOfWeek.setDate(firstDayOfWeek.getDate() + 1);
         }
-        
-        // Check if has data
-        if (dayMoods && Object.keys(dayMoods).length > 0) {
-            day.classList.add('has-data');
-            
-            // Calculate average for indicator
-            const moodValues = { good: 1, neutral: 0, bad: -1 };
-            const values = Object.values(dayMoods).map(m => moodValues[m]);
-            const avg = values.reduce((a, b) => a + b, 0) / values.length;
-            
-            let iconSrc;
-            if (avg > 0.3) iconSrc = 'good.png';
-            else if (avg < -0.3) iconSrc = 'bad.png';
-            else iconSrc = 'neutral.png';
-            
-            const indicator = document.createElement('img');
-            indicator.className = 'mood-indicator';
-            indicator.src = iconSrc;
-            indicator.alt = 'mood';
-            
-            day.innerHTML = `${i}`;
-            day.appendChild(indicator);
-        } else {
-            day.textContent = i;
-        }
-        
-        day.addEventListener('click', () => showDayDetail(date));
-        grid.appendChild(day);
-    }
-    
-    // Next month days
-    const totalCells = grid.children.length - 7; // Exclude headers
-    const remainingCells = 42 - totalCells - 7; // 6 rows * 7 days - headers
-    for (let i = 1; i <= remainingCells; i++) {
-        const day = document.createElement('div');
-        day.className = 'calendar-day other-month';
-        day.textContent = i;
-        grid.appendChild(day);
-    }
-}
-
-function showDayDetail(date) {
-    const moods = getMoodsForDate(date);
-    const notes = getAllNotes();
-    const tags = getTagsForDate(date);
-    const dateKey = getDateKey(date);
-    
-    const detail = document.getElementById('day-detail');
-    const dateDisplay = document.getElementById('detail-date');
-    const moodsDisplay = document.getElementById('detail-moods');
-    const notesDisplay = document.getElementById('detail-notes');
-    
-    dateDisplay.textContent = formatDate(date);
-    
-    // Display moods
-    moodsDisplay.innerHTML = '<h4>Moods</h4>';
-    const moodIcons = { good: 'good.png', neutral: 'neutral.png', bad: 'bad.png' };
-    const moodLabels = { good: 'Good', neutral: 'Neutral', bad: 'Bad' };
-    
-    if (Object.keys(moods).length === 0) {
-        moodsDisplay.innerHTML += '<p style="color: var(--text-light); margin-top: 0.5rem;">No check-ins for this day</p>';
     } else {
-        ['breakfast', 'lunch', 'dinner'].forEach(meal => {
-            if (moods[meal]) {
-                const item = document.createElement('div');
-                item.className = 'detail-mood-item';
-                
-                let tagsHtml = '';
-                if (tags[meal] && tags[meal].length > 0) {
-                    tagsHtml = `<div style="font-size: 0.85rem; color: var(--text-light); margin-top: 0.25rem;">Tags: ${tags[meal].join(', ')}</div>`;
-                }
-                
-                item.innerHTML = `
-                    <div>
-                        <span style="text-transform: capitalize; font-weight: 500;">${meal}</span>
-                        ${tagsHtml}
-                    </div>
-                    <span style="display: flex; align-items: center; gap: 0.5rem;">
-                        <img src="${moodIcons[moods[meal]]}" alt="${moodLabels[moods[meal]]}" style="width: 24px; height: 24px;">
-                        ${moodLabels[moods[meal]]}
-                    </span>
-                `;
-                moodsDisplay.appendChild(item);
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        
+        for (let i = 0; i < firstDay.getDay(); i++) {
+            daysToRender.push(null); // Empty slots
+        }
+        for (let i = 1; i <= lastDay.getDate(); i++) {
+            daysToRender.push(new Date(year, month, i));
+        }
+    }
+    
+    daysToRender.forEach(date => {
+        const dayEl = document.createElement('div');
+        dayEl.className = 'calendar-day';
+        if (date) {
+            dayEl.textContent = date.getDate();
+            const dateKey = getDateKey(date);
+            if (moods[dateKey]) {
+                dayEl.classList.add('has-mood');
+                // Optional: color code dot based on mood
+                if(moods[dateKey].mood === 'bad') dayEl.style.setProperty('--primary', 'var(--bad)');
+                if(moods[dateKey].mood === 'good') dayEl.style.setProperty('--primary', 'var(--good)');
             }
-        });
-    }
-    
-    // Display notes
-    if (notes[dateKey]) {
-        notesDisplay.innerHTML = `<h4>Notes</h4><p style="margin-top: 0.5rem; white-space: pre-wrap;">${notes[dateKey]}</p>`;
-    } else {
-        notesDisplay.innerHTML = '';
-    }
-    
-    detail.classList.remove('hidden');
+        }
+        grid.appendChild(dayEl);
+    });
 }
 
-// Journal
-function setupJournal() {
-    document.getElementById('new-entry-btn').addEventListener('click', () => {
-        currentEditingEntry = null;
-        currentPhotos = [];
-        showJournalEditor();
-    });
+// --- 5. TRENDS/PATTERNS ---
+function renderTrends() {
+    const moods = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOODS) || '{}');
+    let good = 0, neutral = 0, bad = 0;
+    const tagCounts = {};
     
+    // Look at last 30 days
+    const today = new Date();
+    for(let i=0; i<30; i++) {
+        let d = new Date(today);
+        d.setDate(d.getDate() - i);
+        let key = getDateKey(d);
+        if(moods[key]) {
+            if(moods[key].mood === 'good') good++;
+            if(moods[key].mood === 'neutral') neutral++;
+            if(moods[key].mood === 'bad') bad++;
+            
+            if(moods[key].tags) {
+                moods[key].tags.forEach(tag => {
+                    tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+                });
+            }
+        }
+    }
+    
+    const total = good + neutral + bad;
+    const chart = document.getElementById('mood-pie-chart');
+    if (total === 0) {
+        chart.innerHTML = "<p>Not enough data yet.</p>";
+    } else {
+        chart.innerHTML = `
+            <div class="chart-bar"><span class="chart-bar-label">Good</span> <div class="chart-bar-fill fill-good" style="width: ${(good/total)*100}%">${good}</div></div>
+            <div class="chart-bar"><span class="chart-bar-label">Neutral</span> <div class="chart-bar-fill fill-neutral" style="width: ${(neutral/total)*100}%">${neutral}</div></div>
+            <div class="chart-bar"><span class="chart-bar-label">Bad</span> <div class="chart-bar-fill fill-bad" style="width: ${(bad/total)*100}%">${bad}</div></div>
+        `;
+    }
+    
+    const tagsList = document.getElementById('top-tags-list');
+    tagsList.innerHTML = Object.entries(tagCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5) // Top 5
+        .map(([tag, count]) => `<span class="tag-badge">${tag} (${count})</span>`)
+        .join(' ');
+}
+
+// --- 6. JOURNAL, SEARCH & PHOTOS ---
+function setupJournal() {
+    document.getElementById('new-entry-btn').addEventListener('click', () => openJournalEditor());
     document.getElementById('close-editor').addEventListener('click', closeJournalEditor);
     document.getElementById('cancel-entry').addEventListener('click', closeJournalEditor);
     document.getElementById('save-entry').addEventListener('click', saveJournalEntry);
-    document.getElementById('delete-entry').addEventListener('click', deleteJournalEntry);
     
-    document.getElementById('add-photo-btn').addEventListener('click', () => {
-        document.getElementById('photo-input').click();
+    // Search
+    document.getElementById('search-journal').addEventListener('input', (e) => {
+        renderJournalEntries(e.target.value.toLowerCase());
     });
     
-    document.getElementById('photo-input').addEventListener('change', handlePhotoUpload);
-    
-    document.getElementById('journal-search').addEventListener('input', debounce(searchJournal, 300));
-}
-
-function handlePhotoUpload(e) {
-    const files = Array.from(e.target.files);
-    
-    files.forEach(file => {
+    // Photo handling & compression
+    document.getElementById('entry-photo').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
         const reader = new FileReader();
-        reader.onload = (event) => {
-            currentPhotos.push(event.target.result);
-            renderPhotoPreview();
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = function() {
+                // Compress image to save localStorage space
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const MAX_WIDTH = 600;
+                let width = img.width;
+                let height = img.height;
+                if (width > MAX_WIDTH) {
+                    height *= MAX_WIDTH / width;
+                    width = MAX_WIDTH;
+                }
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(img, 0, 0, width, height);
+                currentPhotoBase64 = canvas.toDataURL('image/jpeg', 0.7); // 70% quality jpeg
+                
+                document.getElementById('photo-preview-container').innerHTML = `<img src="${currentPhotoBase64}">`;
+            }
+            img.src = event.target.result;
         };
         reader.readAsDataURL(file);
     });
     
-    e.target.value = '';
+    renderJournalEntries();
 }
 
-function renderPhotoPreview() {
-    const preview = document.getElementById('photo-preview');
-    preview.innerHTML = '';
+function openJournalEditor(entry = null) {
+    currentEditingEntry = entry;
+    document.getElementById('entry-title').value = entry ? entry.title : '';
+    document.getElementById('entry-content').value = entry ? entry.content : '';
     
-    currentPhotos.forEach((photo, index) => {
-        const item = document.createElement('div');
-        item.className = 'photo-preview-item';
-        item.innerHTML = `
-            <img src="${photo}" alt="Photo ${index + 1}">
-            <button class="photo-remove-btn" onclick="removePhoto(${index})">×</button>
-        `;
-        preview.appendChild(item);
-    });
-}
-
-function removePhoto(index) {
-    currentPhotos.splice(index, 1);
-    renderPhotoPreview();
-}
-
-// Make removePhoto globally accessible
-window.removePhoto = removePhoto;
-
-function showJournalEditor(entry = null) {
-    const editor = document.getElementById('journal-editor');
-    const titleInput = document.getElementById('entry-title');
-    const contentInput = document.getElementById('entry-content');
-    const deleteBtn = document.getElementById('delete-entry');
+    currentPhotoBase64 = entry ? entry.photo : null;
+    document.getElementById('photo-preview-container').innerHTML = currentPhotoBase64 ? `<img src="${currentPhotoBase64}">` : '';
+    document.getElementById('entry-photo').value = '';
     
-    if (entry) {
-        currentEditingEntry = entry;
-        titleInput.value = entry.title || '';
-        contentInput.value = entry.content || '';
-        currentPhotos = entry.photos || [];
-        renderPhotoPreview();
-        deleteBtn.classList.remove('hidden');
-    } else {
-        titleInput.value = '';
-        contentInput.value = '';
-        currentPhotos = [];
-        renderPhotoPreview();
-        deleteBtn.classList.add('hidden');
-    }
-    
-    editor.classList.remove('hidden');
-    titleInput.focus();
+    document.getElementById('journal-editor').classList.remove('hidden');
 }
 
 function closeJournalEditor() {
     document.getElementById('journal-editor').classList.add('hidden');
     currentEditingEntry = null;
-    currentPhotos = [];
+    currentPhotoBase64 = null;
 }
 
 function saveJournalEntry() {
-    const title = document.getElementById('entry-title').value.trim();
+    const title = document.getElementById('entry-title').value.trim() || 'Untitled';
     const content = document.getElementById('entry-content').value.trim();
     
-    if (!content) {
-        alert('Please write something before saving');
-        return;
-    }
+    if (!content) return alert('Please write some content.');
     
-    const entries = getAllJournalEntries();
+    let entries = JSON.parse(localStorage.getItem(STORAGE_KEYS.JOURNAL) || '[]');
     
     if (currentEditingEntry) {
-        // Update existing entry
         const index = entries.findIndex(e => e.id === currentEditingEntry.id);
         if (index !== -1) {
-            entries[index] = {
-                ...currentEditingEntry,
-                title: title || 'Untitled',
-                content,
-                photos: currentPhotos,
-                updatedAt: new Date().toISOString()
-            };
+            entries[index] = { ...entries[index], title, content, photo: currentPhotoBase64, updatedAt: new Date().toISOString() };
         }
     } else {
-        // Create new entry
-        const newEntry = {
+        entries.unshift({
             id: Date.now().toString(),
-            title: title || 'Untitled',
+            title,
             content,
-            photos: currentPhotos,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        };
-        entries.unshift(newEntry);
+            photo: currentPhotoBase64,
+            createdAt: new Date().toISOString()
+        });
     }
     
     localStorage.setItem(STORAGE_KEYS.JOURNAL, JSON.stringify(entries));
     closeJournalEditor();
-    renderJournalEntries();
+    renderJournalEntries(document.getElementById('search-journal').value.toLowerCase());
 }
 
-function deleteJournalEntry() {
-    if (!currentEditingEntry) return;
-    
-    if (!confirm('Are you sure you want to delete this entry?')) return;
-    
-    const entries = getAllJournalEntries();
-    const filtered = entries.filter(e => e.id !== currentEditingEntry.id);
-    
-    localStorage.setItem(STORAGE_KEYS.JOURNAL, JSON.stringify(filtered));
-    closeJournalEditor();
-    renderJournalEntries();
-}
-
-function getAllJournalEntries() {
-    const stored = localStorage.getItem(STORAGE_KEYS.JOURNAL);
-    return stored ? JSON.parse(stored) : [];
-}
-
-function searchJournal(e) {
-    const query = e.target.value.toLowerCase().trim();
-    
-    if (!query) {
-        renderJournalEntries();
-        return;
-    }
-    
-    const entries = getAllJournalEntries();
-    const filtered = entries.filter(entry => 
-        entry.title.toLowerCase().includes(query) || 
-        entry.content.toLowerCase().includes(query)
-    );
-    
-    renderJournalEntries(filtered);
-}
-
-function renderJournalEntries(entries = null) {
-    const entriesToRender = entries || getAllJournalEntries();
+function renderJournalEntries(searchTerm = '') {
+    let entries = JSON.parse(localStorage.getItem(STORAGE_KEYS.JOURNAL) || '[]');
     const container = document.getElementById('journal-entries');
     
-    if (entriesToRender.length === 0) {
-        const message = entries ? 'No entries match your search' : 'No journal entries yet';
-        const subtext = entries ? 'Try a different search term' : 'Tap "New Entry" to start writing';
-        container.innerHTML = `
-            <div class="empty-state">
-                <h3>${message}</h3>
-                <p>${subtext}</p>
-            </div>
-        `;
+    if (searchTerm) {
+        entries = entries.filter(e => 
+            e.title.toLowerCase().includes(searchTerm) || 
+            e.content.toLowerCase().includes(searchTerm)
+        );
+    }
+    
+    if (entries.length === 0) {
+        container.innerHTML = `<div class="empty-state"><p>No entries found.</p></div>`;
         return;
     }
     
     container.innerHTML = '';
     
-    entriesToRender.forEach(entry => {
+    entries.forEach(entry => {
         const entryEl = document.createElement('div');
         entryEl.className = 'journal-entry';
         
-        const date = new Date(entry.createdAt);
-        const dateStr = date.toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: 'numeric', 
-            year: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit'
-        });
+        const dateStr = new Date(entry.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         
-        let photosHtml = '';
-        if (entry.photos && entry.photos.length > 0) {
-            photosHtml = `
-                <div class="entry-photos">
-                    ${entry.photos.slice(0, 4).map(photo => `
-                        <div class="entry-photo"><img src="${photo}" alt="Entry photo"></div>
-                    `).join('')}
-                </div>
-            `;
-        }
+        let photoHtml = entry.photo ? `<img src="${entry.photo}" class="entry-thumbnail">` : '';
         
         entryEl.innerHTML = `
             <div class="entry-header">
                 <div class="entry-title">${entry.title}</div>
                 <div class="entry-date">${dateStr}</div>
             </div>
-            <div class="entry-preview">${entry.content}</div>
-            ${photosHtml}
+            <div class="entry-preview">${entry.content.substring(0, 100)}${entry.content.length > 100 ? '...' : ''}</div>
+            ${photoHtml}
         `;
         
-        entryEl.addEventListener('click', () => showJournalEditor(entry));
+        entryEl.addEventListener('click', () => openJournalEditor(entry));
         container.appendChild(entryEl);
     });
 }
-
-// Utilities
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-                               }
