@@ -14,67 +14,54 @@
 <body>
     <div id="app">
         <header>
-            <h1>Mood Tracker</h1>
+            <div class="header-top">
+                <h1>Mood Tracker</h1>
+                <div class="header-actions">
+                    <span id="streak-counter">🔥 0 Day Streak</span>
+                    <button id="export-btn" title="Export Data">📥</button>
+                </div>
+            </div>
             <div id="current-date"></div>
         </header>
 
         <nav class="tab-nav">
             <button class="tab-btn active" data-tab="check-in">Check In</button>
             <button class="tab-btn" data-tab="calendar">Calendar</button>
+            <button class="tab-btn" data-tab="trends">Trends</button>
             <button class="tab-btn" data-tab="journal">Journal</button>
         </nav>
 
-        <!-- Check In Tab -->
         <div id="check-in" class="tab-content active">
             <div class="mood-check-container">
                 <div class="check-in-section">
-                    <h2>Breakfast</h2>
-                    <div class="mood-buttons" data-meal="breakfast">
-                        <button class="mood-btn" data-mood="good">😊 Good</button>
-                        <button class="mood-btn" data-mood="neutral">😐 Neutral</button>
-                        <button class="mood-btn" data-mood="bad">😔 Bad</button>
+                    <h2>How are you feeling?</h2>
+                    <div class="mood-buttons" data-meal="daily">
+                        <button class="mood-btn" data-mood="good">
+                            <img src="good.png" alt="Good">
+                            <span>Good</span>
+                        </button>
+                        <button class="mood-btn" data-mood="neutral">
+                            <img src="neutral.png" alt="Neutral">
+                            <span>Neutral</span>
+                        </button>
+                        <button class="mood-btn" data-mood="bad">
+                            <img src="bad.png" alt="Bad">
+                            <span>Bad</span>
+                        </button>
                     </div>
-                    <div class="check-status" data-meal="breakfast"></div>
-                </div>
-
-                <div class="check-in-section">
-                    <h2>Lunch</h2>
-                    <div class="mood-buttons" data-meal="lunch">
-                        <button class="mood-btn" data-mood="good">😊 Good</button>
-                        <button class="mood-btn" data-mood="neutral">😐 Neutral</button>
-                        <button class="mood-btn" data-mood="bad">😔 Bad</button>
+                    <div class="tags-section">
+                        <input type="text" id="mood-tags" placeholder="Add tags (e.g., work, tired, sunny) - comma separated">
                     </div>
-                    <div class="check-status" data-meal="lunch"></div>
-                </div>
-
-                <div class="check-in-section">
-                    <h2>Dinner</h2>
-                    <div class="mood-buttons" data-meal="dinner">
-                        <button class="mood-btn" data-mood="good">😊 Good</button>
-                        <button class="mood-btn" data-mood="neutral">😐 Neutral</button>
-                        <button class="mood-btn" data-mood="bad">😔 Bad</button>
-                    </div>
-                    <div class="check-status" data-meal="dinner"></div>
-                </div>
-
-                <div class="daily-average">
-                    <h3>Today's Average</h3>
-                    <div id="average-display">No check-ins yet</div>
-                </div>
-
-                <div class="daily-notes-section">
-                    <h3>Daily Notes</h3>
-                    <textarea id="daily-notes" placeholder="Quick notes for today..."></textarea>
                 </div>
             </div>
         </div>
 
-        <!-- Calendar Tab -->
         <div id="calendar" class="tab-content">
             <div class="calendar-controls">
                 <button id="prev-month">‹</button>
                 <h2 id="calendar-month"></h2>
                 <button id="next-month">›</button>
+                <button id="toggle-view-btn">Week View</button>
             </div>
             <div id="calendar-grid"></div>
             <div id="day-detail" class="day-detail hidden">
@@ -85,9 +72,23 @@
             </div>
         </div>
 
-        <!-- Journal Tab -->
+        <div id="trends" class="tab-content">
+            <h2>Your Mood Patterns</h2>
+            <div class="trends-container">
+                <div class="trend-card">
+                    <h3>Last 30 Days</h3>
+                    <div id="mood-pie-chart" class="chart-container"></div>
+                </div>
+                <div class="trend-card">
+                    <h3>Top Tags</h3>
+                    <div id="top-tags-list"></div>
+                </div>
+            </div>
+        </div>
+
         <div id="journal" class="tab-content">
             <div class="journal-controls">
+                <input type="text" id="search-journal" placeholder="Search entries...">
                 <button id="new-entry-btn">New Entry</button>
             </div>
             <div id="journal-entries"></div>
@@ -96,6 +97,13 @@
                 <button id="close-editor">×</button>
                 <input type="text" id="entry-title" placeholder="Title (optional)">
                 <textarea id="entry-content" placeholder="Write your thoughts..."></textarea>
+                
+                <div class="attachment-section">
+                    <label for="entry-photo" class="file-label">📷 Attach Photo</label>
+                    <input type="file" id="entry-photo" accept="image/*" class="hidden-input">
+                    <div id="photo-preview-container"></div>
+                </div>
+
                 <div class="editor-buttons">
                     <button id="save-entry">Save</button>
                     <button id="cancel-entry">Cancel</button>
