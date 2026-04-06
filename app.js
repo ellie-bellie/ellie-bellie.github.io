@@ -1,3 +1,5 @@
+const APP_VERSION = 1;
+
 // Storage keys
 const STORAGE_KEYS = {
     MOODS: 'mood_tracker_moods',
