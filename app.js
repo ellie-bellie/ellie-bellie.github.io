@@ -18,6 +18,7 @@ function initApp() {
     setupCalendar();
     setupJournal();
     calculateStreak();
+    renderTrends(); // Initial trend load
 }
 
 // --- UTILS ---
@@ -37,11 +38,13 @@ function setupTabs() {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             e.target.classList.add('active');
             document.getElementById(e.target.dataset.tab).classList.add('active');
+            
+            if(e.target.dataset.tab === 'trends') renderTrends();
         });
     });
 }
 
-// --- CALENDAR & WEEK VIEW ---
+// --- CALENDAR LOGIC ---
 function setupCalendar() {
     document.getElementById('prev-month').addEventListener('click', () => {
         if (isWeekView) selectedDate.setDate(selectedDate.getDate() - 7);
@@ -115,7 +118,38 @@ function showDayDetail(date) {
     document.getElementById('day-detail').classList.remove('hidden');
 }
 
-// --- JOURNAL ---
+// --- TRENDS LOGIC ---
+function renderTrends() {
+    const moods = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOODS) || '{}');
+    const moodCounts = { good: 0, neutral: 0, bad: 0 };
+    const tagCounts = {};
+
+    Object.values(moods).forEach(entry => {
+        // Count Moods
+        if (moodCounts[entry.mood] !== undefined) moodCounts[entry.mood]++;
+        
+        // Count Tags
+        if (entry.tags) {
+            entry.tags.forEach(tag => {
+                tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+            });
+        }
+    });
+
+    // Find Top Mood
+    const topMood = Object.keys(moodCounts).reduce((a, b) => moodCounts[a] > moodCounts[b] ? a : b);
+    document.getElementById('top-mood-display').textContent = moodCounts[topMood] > 0 ? topMood.toUpperCase() : "No data yet";
+
+    // Find Top Tags
+    const topTags = Object.entries(tagCounts)
+        .sort(([,a], [,b]) => b - a)
+        .slice(0, 5)
+        .map(([tag, count]) => `${tag} (${count})`);
+
+    document.getElementById('top-tags-display').textContent = topTags.length > 0 ? topTags.join(', ') : "No tags used yet";
+}
+
+// --- JOURNAL LOGIC ---
 function setupJournal() {
     document.getElementById('new-entry-btn').addEventListener('click', () => openJournalEditor());
     document.getElementById('close-editor').addEventListener('click', closeJournalEditor);
@@ -171,7 +205,6 @@ function renderJournalEntries(search = '') {
     `).join('') || '<p style="text-align:center; padding:20px;">No entries found.</p>';
 }
 
-// Global helper for the list clicks
 window.editEntryById = (id) => {
     const entries = JSON.parse(localStorage.getItem(STORAGE_KEYS.JOURNAL) || '[]');
     const entry = entries.find(e => e.id === id);
@@ -190,6 +223,7 @@ function setupCheckIns() {
             alert('Mood Saved!');
             renderCalendar();
             calculateStreak();
+            renderTrends();
         });
     });
 }
@@ -200,4 +234,4 @@ function calculateStreak() {
     check.setHours(0,0,0,0);
     while (moods[getDateKey(check)]) { streak++; check.setDate(check.getDate() - 1); }
     document.getElementById('streak-counter').textContent = `🔥 ${streak} Day Streak`;
-}
+        }
