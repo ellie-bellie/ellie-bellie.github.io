@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mood-tracker-v4'; // Changed to v3 to force update
+const CACHE_NAME = 'mood-tracker-v5'; // Changed to v3 to force update
 const urlsToCache = [
   '/',
   '/index.html',
