@@ -1,5 +1,4 @@
-// Bumping the version number forces the browser to fetch the new files
-const CACHE_NAME = 'mood-tracker-v2';
+const CACHE_NAME = 'mood-tracker-v3'; // Changed to v3 to force update
 const urlsToCache = [
   '/',
   '/index.html',
@@ -9,20 +8,10 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', event => {
-  self.skipWaiting(); // Forces the waiting service worker to become the active service worker
+  // Forces the new service worker to take over immediately
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
-  );
-});
-
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // Return cached version or fetch new
-        return response || fetch(event.request);
-      })
+    caches.open(CACHE_NAME).then(cache => cache.addAll(urlsToCache))
   );
 });
 
@@ -32,10 +21,18 @@ self.addEventListener('activate', event => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName); // Deletes old v1 cache
+            return caches.delete(cacheName); // Deletes the old v1 and v2 caches
           }
         })
       );
-    }).then(() => self.clients.claim()) // Take control of all pages immediately
+    }).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', event => {
+  event.respondWith(
+    caches.match(event.request).then(response => {
+      return response || fetch(event.request);
+    })
   );
 });
