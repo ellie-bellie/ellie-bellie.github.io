@@ -119,3 +119,74 @@ header {
     #new-entry-btn { width: auto; }
     .journal-editor { max-width: 600px; left: 50%; transform: translateX(-50%); height: 100vh; box-shadow: 0 0 20px rgba(0,0,0,0.2); }
 }
+/* --- CALENDAR DAY DETAIL MODAL --- */
+/* This styles the popup that appears when you click a date */
+.day-detail {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--surface);
+    width: 90%;
+    max-width: 400px;
+    padding: 2rem;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    z-index: 2000; /* Ensures it sits on top of everything else */
+    border: 1px solid var(--border);
+}
+
+/* This class is toggled by app.js to show/hide the popup */
+.day-detail.hidden {
+    display: none;
+}
+
+#close-detail {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--background);
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--text-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+#close-detail:hover {
+    background: var(--border);
+    color: var(--primary);
+}
+
+#detail-date {
+    color: var(--primary);
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--background);
+    font-size: 1.25rem;
+}
+
+.detail-item {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: var(--background);
+    border-radius: 12px;
+    font-size: 1rem;
+    color: var(--text);
+}
+
+.detail-item strong {
+    display: block;
+    color: var(--secondary);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+    }
