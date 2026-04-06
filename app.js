@@ -18,12 +18,24 @@ function initApp() {
     setupCalendar();
     setupJournal();
     calculateStreak();
-    renderTrends(); // Initial trend load
+    renderTrends(); 
 }
 
-// --- UTILS ---
+// --- UTILS & STORAGE ---
 function getDateKey(date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+// Helper to handle multiple logs per day
+function getMoodData() {
+    const data = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOODS) || '{}');
+    // Migration: If old data is a single object, wrap it in an array
+    Object.keys(data).forEach(key => {
+        if (!Array.isArray(data[key])) {
+            data[key] = [data[key]];
+        }
+    });
+    return data;
 }
 
 function updateCurrentDate() {
@@ -44,7 +56,7 @@ function setupTabs() {
     });
 }
 
-// --- CALENDAR LOGIC ---
+// --- CALENDAR & MULTI-LOG LOGIC ---
 function setupCalendar() {
     document.getElementById('prev-month').addEventListener('click', () => {
         if (isWeekView) selectedDate.setDate(selectedDate.getDate() - 7);
@@ -94,53 +106,86 @@ function renderCalendar() {
 }
 
 function createDayElement(date, container) {
-    const moods = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOODS) || '{}');
+    const moods = getMoodData();
     const dateKey = getDateKey(date);
     const dayEl = document.createElement('div');
     dayEl.className = 'calendar-day';
     dayEl.textContent = date.getDate();
-    if (moods[dateKey]) {
+
+    if (moods[dateKey] && moods[dateKey].length > 0) {
         dayEl.classList.add('has-mood');
-        const m = moods[dateKey].mood;
-        dayEl.style.color = m === 'good' ? '#4CAF50' : (m === 'bad' ? '#F44336' : '#FF9800');
+        
+        // Calculate Average Mood for the Day
+        const scores = { good: 3, neutral: 2, bad: 1 };
+        const total = moods[dateKey].reduce((acc, curr) => acc + (scores[curr.mood] || 2), 0);
+        const avg = total / moods[dateKey].length;
+        
+        if (avg >= 2.5) dayEl.style.color = '#4CAF50'; // Good
+        else if (avg >= 1.5) dayEl.style.color = '#FF9800'; // Neutral
+        else dayEl.style.color = '#F44336'; // Bad
     }
+    
     dayEl.addEventListener('click', () => showDayDetail(date));
     container.appendChild(dayEl);
 }
 
 function showDayDetail(date) {
     const dateKey = getDateKey(date);
-    const moods = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOODS) || '{}');
-    const data = moods[dateKey];
+    const moods = getMoodData();
+    const dayLogs = moods[dateKey] || [];
+    
     document.getElementById('detail-date').textContent = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-    document.getElementById('detail-moods').innerHTML = data ? `<div class="detail-item"><strong>Mood</strong>${data.mood.toUpperCase()}</div>` : `<p>No mood recorded.</p>`;
-    document.getElementById('detail-notes').innerHTML = data && data.tags ? `<div class="detail-item"><strong>Tags</strong>${data.tags.join(', ')}</div>` : '';
+    
+    if (dayLogs.length === 0) {
+        document.getElementById('detail-moods').innerHTML = `<p>No moods recorded.</p>`;
+        document.getElementById('detail-notes').innerHTML = '';
+    } else {
+        // Build a list of all logs for that day
+        const logsHtml = dayLogs.map(log => {
+            const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Unknown Time';
+            return `
+                <div class="detail-item" style="border-bottom: 1px solid #eee; padding: 10px 0;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <strong>${time}</strong>
+                        <span style="color: ${log.mood === 'good' ? '#4CAF50' : (log.mood === 'bad' ? '#F44336' : '#FF9800')}">
+                            ${log.mood.toUpperCase()}
+                        </span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #666; margin-top:4px;">
+                        ${log.tags && log.tags.length > 0 ? 'Tags: ' + log.tags.join(', ') : 'No tags'}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        document.getElementById('detail-moods').innerHTML = logsHtml;
+        document.getElementById('detail-notes').innerHTML = '';
+    }
+    
     document.getElementById('day-detail').classList.remove('hidden');
 }
 
 // --- TRENDS LOGIC ---
 function renderTrends() {
-    const moods = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOODS) || '{}');
+    const moods = getMoodData();
     const moodCounts = { good: 0, neutral: 0, bad: 0 };
     const tagCounts = {};
 
-    Object.values(moods).forEach(entry => {
-        // Count Moods
-        if (moodCounts[entry.mood] !== undefined) moodCounts[entry.mood]++;
-        
-        // Count Tags
-        if (entry.tags) {
-            entry.tags.forEach(tag => {
-                tagCounts[tag] = (tagCounts[tag] || 0) + 1;
-            });
-        }
+    Object.values(moods).forEach(dayArray => {
+        dayArray.forEach(entry => {
+            if (moodCounts[entry.mood] !== undefined) moodCounts[entry.mood]++;
+            if (entry.tags) {
+                entry.tags.forEach(tag => {
+                    tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+                });
+            }
+        });
     });
 
-    // Find Top Mood
-    const topMood = Object.keys(moodCounts).reduce((a, b) => moodCounts[a] > moodCounts[b] ? a : b);
-    document.getElementById('top-mood-display').textContent = moodCounts[topMood] > 0 ? topMood.toUpperCase() : "No data yet";
+    const entries = Object.keys(moodCounts).filter(k => moodCounts[k] > 0);
+    const topMood = entries.length > 0 ? entries.reduce((a, b) => moodCounts[a] > moodCounts[b] ? a : b) : null;
+    document.getElementById('top-mood-display').textContent = topMood ? topMood.toUpperCase() : "No data yet";
 
-    // Find Top Tags
     const topTags = Object.entries(tagCounts)
         .sort(([,a], [,b]) => b - a)
         .slice(0, 5)
@@ -216,10 +261,24 @@ function setupCheckIns() {
     document.querySelectorAll('.mood-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const mood = e.currentTarget.dataset.mood;
-            const tags = document.getElementById('mood-tags').value.split(',').map(t => t.trim()).filter(t => t);
-            const moods = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOODS) || '{}');
-            moods[getDateKey(new Date())] = { mood, tags, timestamp: new Date().toISOString() };
+            const tagsInput = document.getElementById('mood-tags');
+            const tags = tagsInput.value.split(',').map(t => t.trim()).filter(t => t);
+            
+            const moods = getMoodData();
+            const dateKey = getDateKey(new Date());
+            
+            if (!moods[dateKey]) moods[dateKey] = [];
+            
+            moods[dateKey].push({ 
+                mood, 
+                tags, 
+                timestamp: new Date().toISOString() 
+            });
+            
             localStorage.setItem(STORAGE_KEYS.MOODS, JSON.stringify(moods));
+            
+            // UI Cleanup
+            tagsInput.value = '';
             alert('Mood Saved!');
             renderCalendar();
             calculateStreak();
@@ -229,9 +288,12 @@ function setupCheckIns() {
 }
 
 function calculateStreak() {
-    const moods = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOODS) || '{}');
+    const moods = getMoodData();
     let streak = 0, check = new Date();
     check.setHours(0,0,0,0);
-    while (moods[getDateKey(check)]) { streak++; check.setDate(check.getDate() - 1); }
+    while (moods[getDateKey(check)]) { 
+        streak++; 
+        check.setDate(check.getDate() - 1); 
+    }
     document.getElementById('streak-counter').textContent = `🔥 ${streak} Day Streak`;
         }
