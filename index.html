@@ -3,12 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#6B4E71">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Mood Tracker</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -18,7 +14,6 @@
                 <h1>Mood Tracker</h1>
                 <div class="header-actions">
                     <span id="streak-counter">🔥 0 Day Streak</span>
-                    <button id="export-btn" title="Export Data">📥</button>
                 </div>
             </div>
             <div id="current-date"></div>
@@ -27,33 +22,17 @@
         <nav class="tab-nav">
             <button class="tab-btn active" data-tab="check-in">Check In</button>
             <button class="tab-btn" data-tab="calendar">Calendar</button>
-            <button class="tab-btn" data-tab="trends">Trends</button>
             <button class="tab-btn" data-tab="journal">Journal</button>
         </nav>
 
         <div id="check-in" class="tab-content active">
-            <div class="mood-check-container">
-                <div class="check-in-section">
-                    <h2>How are you feeling?</h2>
-                    <div class="mood-buttons" data-meal="daily">
-                        <button class="mood-btn" data-mood="good">
-                            <img src="good.png" alt="Good">
-                            <span>Good</span>
-                        </button>
-                        <button class="mood-btn" data-mood="neutral">
-                            <img src="neutral.png" alt="Neutral">
-                            <span>Neutral</span>
-                        </button>
-                        <button class="mood-btn" data-mood="bad">
-                            <img src="bad.png" alt="Bad">
-                            <span>Bad</span>
-                        </button>
-                    </div>
-                    <div class="tags-section">
-                        <input type="text" id="mood-tags" placeholder="Add tags (e.g., work, tired, sunny) - comma separated">
-                    </div>
-                </div>
+            <h2>How are you?</h2>
+            <div class="mood-buttons">
+                <button class="mood-btn" data-mood="good"><img src="good.png" alt="Good"></button>
+                <button class="mood-btn" data-mood="neutral"><img src="neutral.png" alt="Neutral"></button>
+                <button class="mood-btn" data-mood="bad"><img src="bad.png" alt="Bad"></button>
             </div>
+            <input type="text" id="mood-tags" placeholder="Add tags (e.g. productive, tired)...">
         </div>
 
         <div id="calendar" class="tab-content">
@@ -64,26 +43,6 @@
                 <button id="toggle-view-btn">Week View</button>
             </div>
             <div id="calendar-grid"></div>
-            <div id="day-detail" class="day-detail hidden">
-                <button id="close-detail">×</button>
-                <h3 id="detail-date"></h3>
-                <div id="detail-moods"></div>
-                <div id="detail-notes"></div>
-            </div>
-        </div>
-
-        <div id="trends" class="tab-content">
-            <h2>Your Mood Patterns</h2>
-            <div class="trends-container">
-                <div class="trend-card">
-                    <h3>Last 30 Days</h3>
-                    <div id="mood-pie-chart" class="chart-container"></div>
-                </div>
-                <div class="trend-card">
-                    <h3>Top Tags</h3>
-                    <div id="top-tags-list"></div>
-                </div>
-            </div>
         </div>
 
         <div id="journal" class="tab-content">
@@ -92,22 +51,22 @@
                 <button id="new-entry-btn">New Entry</button>
             </div>
             <div id="journal-entries"></div>
-            
-            <div id="journal-editor" class="journal-editor hidden">
-                <button id="close-editor">×</button>
-                <input type="text" id="entry-title" placeholder="Title (optional)">
-                <textarea id="entry-content" placeholder="Write your thoughts..."></textarea>
-                
-                <div class="attachment-section">
-                    <label for="entry-photo" class="file-label">📷 Attach Photo</label>
-                    <input type="file" id="entry-photo" accept="image/*" class="hidden-input">
-                    <div id="photo-preview-container"></div>
-                </div>
+        </div>
 
-                <div class="editor-buttons">
-                    <button id="save-entry">Save</button>
-                    <button id="cancel-entry">Cancel</button>
-                </div>
+        <div id="day-detail" class="day-detail hidden">
+            <button id="close-detail">×</button>
+            <h3 id="detail-date"></h3>
+            <div id="detail-moods"></div>
+            <div id="detail-notes"></div>
+        </div>
+
+        <div id="journal-editor" class="journal-editor hidden">
+            <button id="close-editor">×</button>
+            <input type="text" id="entry-title" placeholder="Title (optional)">
+            <textarea id="entry-content" placeholder="Write your thoughts..."></textarea>
+            <div class="editor-buttons">
+                <button id="save-entry">Save</button>
+                <button id="cancel-entry">Cancel</button>
             </div>
         </div>
     </div>
