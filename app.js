@@ -234,77 +234,103 @@ function renderTrends() {
 
 // --- 6. JOURNAL, SEARCH & PHOTOS ---
 function setupJournal() {
-    document.getElementById('new-entry-btn').addEventListener('click', () => openJournalEditor());
-    document.getElementById('close-editor').addEventListener('click', closeJournalEditor);
-    document.getElementById('cancel-entry').addEventListener('click', closeJournalEditor);
-    document.getElementById('save-entry').addEventListener('click', saveJournalEntry);
+    const newEntryBtn = document.getElementById('new-entry-btn');
+    const closeEditorBtn = document.getElementById('close-editor');
+    const cancelEntryBtn = document.getElementById('cancel-entry');
+    const saveEntryBtn = document.getElementById('save-entry');
+    const searchJournal = document.getElementById('search-journal');
+    const entryPhoto = document.getElementById('entry-photo');
+
+    if (newEntryBtn) newEntryBtn.addEventListener('click', () => openJournalEditor(null));
+    if (closeEditorBtn) closeEditorBtn.addEventListener('click', closeJournalEditor);
+    if (cancelEntryBtn) cancelEntryBtn.addEventListener('click', closeJournalEditor);
+    if (saveEntryBtn) saveEntryBtn.addEventListener('click', saveJournalEntry);
     
     // Search
-    document.getElementById('search-journal').addEventListener('input', (e) => {
-        renderJournalEntries(e.target.value.toLowerCase());
-    });
+    if (searchJournal) {
+        searchJournal.addEventListener('input', (e) => {
+            renderJournalEntries(e.target.value.toLowerCase());
+        });
+    }
     
     // Photo handling & compression
-    document.getElementById('entry-photo').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            const img = new Image();
-            img.onload = function() {
-                // Compress image to save localStorage space
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                const MAX_WIDTH = 600;
-                let width = img.width;
-                let height = img.height;
-                if (width > MAX_WIDTH) {
-                    height *= MAX_WIDTH / width;
-                    width = MAX_WIDTH;
+    if (entryPhoto) {
+        entryPhoto.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const MAX_WIDTH = 800;
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(img, 0, 0, width, height);
+                    currentPhotoBase64 = canvas.toDataURL('image/jpeg', 0.6); 
+                    
+                    const previewContainer = document.getElementById('photo-preview-container');
+                    if (previewContainer) previewContainer.innerHTML = `<img src="${currentPhotoBase64}">`;
                 }
-                canvas.width = width;
-                canvas.height = height;
-                ctx.drawImage(img, 0, 0, width, height);
-                currentPhotoBase64 = canvas.toDataURL('image/jpeg', 0.7); // 70% quality jpeg
-                
-                document.getElementById('photo-preview-container').innerHTML = `<img src="${currentPhotoBase64}">`;
-            }
-            img.src = event.target.result;
-        };
-        reader.readAsDataURL(file);
-    });
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
     
     renderJournalEntries();
 }
 
 function openJournalEditor(entry = null) {
     currentEditingEntry = entry;
-    document.getElementById('entry-title').value = entry ? entry.title : '';
-    document.getElementById('entry-content').value = entry ? entry.content : '';
+    
+    const titleInput = document.getElementById('entry-title');
+    const contentInput = document.getElementById('entry-content');
+    const previewContainer = document.getElementById('photo-preview-container');
+    const photoInput = document.getElementById('entry-photo');
+    const editor = document.getElementById('journal-editor');
+
+    if (titleInput) titleInput.value = entry ? (entry.title || '') : '';
+    if (contentInput) contentInput.value = entry ? (entry.content || '') : '';
     
     currentPhotoBase64 = entry ? entry.photo : null;
-    document.getElementById('photo-preview-container').innerHTML = currentPhotoBase64 ? `<img src="${currentPhotoBase64}">` : '';
-    document.getElementById('entry-photo').value = '';
+    if (previewContainer) previewContainer.innerHTML = currentPhotoBase64 ? `<img src="${currentPhotoBase64}">` : '';
+    if (photoInput) photoInput.value = '';
     
-    document.getElementById('journal-editor').classList.remove('hidden');
+    if (editor) editor.classList.remove('hidden');
 }
 
 function closeJournalEditor() {
-    document.getElementById('journal-editor').classList.add('hidden');
+    const editor = document.getElementById('journal-editor');
+    if (editor) editor.classList.add('hidden');
     currentEditingEntry = null;
     currentPhotoBase64 = null;
 }
 
 function saveJournalEntry() {
-    const title = document.getElementById('entry-title').value.trim() || 'Untitled';
-    const content = document.getElementById('entry-content').value.trim();
+    const titleEl = document.getElementById('entry-title');
+    const contentEl = document.getElementById('entry-content');
+    const searchEl = document.getElementById('search-journal');
     
-    if (!content) return alert('Please write some content.');
+    const title = (titleEl ? titleEl.value.trim() : '') || 'Untitled';
+    const content = contentEl ? contentEl.value.trim() : '';
+    
+    if (!content) {
+        alert('Please write some content before saving.');
+        return;
+    }
     
     let entries = JSON.parse(localStorage.getItem(STORAGE_KEYS.JOURNAL) || '[]');
     
-    if (currentEditingEntry) {
+    if (currentEditingEntry && currentEditingEntry.id) {
         const index = entries.findIndex(e => e.id === currentEditingEntry.id);
         if (index !== -1) {
             entries[index] = { ...entries[index], title, content, photo: currentPhotoBase64, updatedAt: new Date().toISOString() };
@@ -321,7 +347,9 @@ function saveJournalEntry() {
     
     localStorage.setItem(STORAGE_KEYS.JOURNAL, JSON.stringify(entries));
     closeJournalEditor();
-    renderJournalEntries(document.getElementById('search-journal').value.toLowerCase());
+    
+    const searchTerm = searchEl ? searchEl.value.toLowerCase() : '';
+    renderJournalEntries(searchTerm);
 }
 
 function renderJournalEntries(searchTerm = '') {
