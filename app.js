@@ -1,4 +1,4 @@
-const APP_VERSION = 1.3;
+const APP_VERSION = 1.5;
 
 const STORAGE_KEYS = {
     MOODS: 'mood_tracker_moods',
@@ -134,7 +134,60 @@ function setupCalendar() {
         renderCalendar();
     });
     
-    renderCalendar();
+    renderCalendar(
+
+        // Inside renderCalendar(), update the daysToRender.forEach loop:
+daysToRender.forEach(date => {
+    const dayEl = document.createElement('div');
+    dayEl.className = 'calendar-day';
+    if (date) {
+        dayEl.textContent = date.getDate();
+        const dateKey = getDateKey(date);
+        const moods = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOODS) || '{}');
+        
+        if (moods[dateKey]) {
+            dayEl.classList.add('has-mood');
+            if(moods[dateKey].mood === 'bad') dayEl.style.setProperty('--primary', 'var(--bad)');
+            if(moods[dateKey].mood === 'good') dayEl.style.setProperty('--primary', 'var(--good)');
+        }
+        
+        // ADD THIS CLICK EVENT:
+        dayEl.addEventListener('click', () => showDayDetail(date));
+    }
+    grid.appendChild(dayEl);
+});
+
+// Add this new function to handle the popup:
+function showDayDetail(date) {
+    const dateKey = getDateKey(date);
+    const moods = JSON.parse(localStorage.getItem(STORAGE_KEYS.MOODS) || '{}');
+    const data = moods[dateKey];
+    
+    document.getElementById('detail-date').textContent = date.toLocaleDateString('en-US', { 
+        month: 'long', day: 'numeric', year: 'numeric' 
+    });
+    
+    const moodContainer = document.getElementById('detail-moods');
+    const tagsContainer = document.getElementById('detail-notes'); // Reusing this for tags
+    
+    if (data) {
+        moodContainer.innerHTML = `<div class="detail-item"><strong>Mood:</strong> ${data.mood.toUpperCase()}</div>`;
+        tagsContainer.innerHTML = data.tags && data.tags.length > 0 
+            ? `<div class="detail-item"><strong>Tags:</strong> ${data.tags.join(', ')}</div>` 
+            : `<div class="detail-item"><em>No tags for this day.</em></div>`;
+    } else {
+        moodContainer.innerHTML = `<p>No data recorded for this day.</p>`;
+        tagsContainer.innerHTML = '';
+    }
+    
+    document.getElementById('day-detail').classList.remove('hidden');
+}
+
+// Add this to your setupCalendar() function to make the close button work:
+document.getElementById('close-detail').addEventListener('click', () => {
+    document.getElementById('day-detail').classList.add('hidden');
+});
+    );
 }
 
 function renderCalendar() {
