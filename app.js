@@ -18,7 +18,14 @@ function initApp() {
     setupCalendar();
     setupJournal();
     calculateStreak();
-    renderTrends(); 
+    renderTrends();
+    initThemeSwitcher();
+    
+    // Export button
+    const exportBtn = document.getElementById('export-btn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', exportData);
+    }
 }
 
 // --- UTILS & STORAGE ---
@@ -192,7 +199,122 @@ function renderTrends() {
         .map(([tag, count]) => `${tag} (${count})`);
 
     document.getElementById('top-tags-display').textContent = topTags.length > 0 ? topTags.join(', ') : "No tags used yet";
+
+    // Render the graph
+    renderTrendGraph(moods);
 }
+
+function renderTrendGraph(allData) {
+    const graphBars = document.getElementById('graph-bars');
+    if (!graphBars) return;
+    
+    graphBars.innerHTML = '';
+
+    // Get last 7 days
+    const today = new Date();
+    const last7Days = [];
+    for (let i = 6; i >= 0; i--) {
+        const date = new Date(today);
+        date.setDate(date.getDate() - i);
+        last7Days.push(date);
+    }
+
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    last7Days.forEach(date => {
+        const dateKey = getDateKey(date);
+        const dayLogs = allData[dateKey] || [];
+        
+        // Count moods for this day
+        const counts = { good: 0, neutral: 0, bad: 0 };
+        dayLogs.forEach(log => {
+            if (counts.hasOwnProperty(log.mood)) {
+                counts[log.mood]++;
+            }
+        });
+
+        const total = counts.good + counts.neutral + counts.bad;
+        
+        // Create bar
+        const barContainer = document.createElement('div');
+        barContainer.className = 'graph-bar';
+
+        const barStack = document.createElement('div');
+        barStack.className = 'bar-stack';
+        
+        if (total > 0) {
+            // Calculate heights as percentages
+            const maxHeight = 180; // pixels
+            const totalHeight = Math.min(total * 40, maxHeight); // 40px per mood entry, capped
+            
+            ['good', 'neutral', 'bad'].forEach(mood => {
+                if (counts[mood] > 0) {
+                    const segment = document.createElement('div');
+                    segment.className = `bar-segment ${mood}`;
+                    const height = (counts[mood] / total) * totalHeight;
+                    segment.style.height = `${height}px`;
+                    barStack.appendChild(segment);
+                }
+            });
+        } else {
+            // Empty bar
+            const segment = document.createElement('div');
+            segment.className = 'bar-segment';
+            segment.style.height = '4px';
+            segment.style.background = 'var(--border)';
+            barStack.appendChild(segment);
+        }
+
+        const label = document.createElement('div');
+        label.className = 'bar-label';
+        label.textContent = dayNames[date.getDay()];
+
+        barContainer.appendChild(barStack);
+        barContainer.appendChild(label);
+        graphBars.appendChild(barContainer);
+    });
+}
+
+// Theme switching
+function initThemeSwitcher() {
+    const savedTheme = localStorage.getItem('app-theme') || 'default';
+    applyTheme(savedTheme);
+
+    document.querySelectorAll('.theme-option').forEach(option => {
+        option.addEventListener('click', () => {
+            const theme = option.dataset.theme;
+            applyTheme(theme);
+            localStorage.setItem('app-theme', theme);
+        });
+    });
+}
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.querySelectorAll('.theme-option').forEach(opt => {
+        opt.classList.toggle('active', opt.dataset.theme === theme);
+    });
+}
+
+// Export data function
+function exportData() {
+    const data = {
+        moods: getMoodData(),
+        journal: JSON.parse(localStorage.getItem(STORAGE_KEYS.JOURNAL) || '[]'),
+        exportDate: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mood-tracker-export-${getDateKey(new Date())}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
 
 // --- JOURNAL LOGIC ---
 function setupJournal() {
