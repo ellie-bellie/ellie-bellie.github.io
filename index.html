@@ -48,6 +48,33 @@
 
         <div id="trends" class="tab-content">
             <h2>Your Trends</h2>
+            
+            <div class="theme-switcher">
+                <div class="theme-option active" data-theme="default" title="Default Purple"></div>
+                <div class="theme-option" data-theme="water-iris" title="Water Iris"></div>
+                <div class="theme-option" data-theme="rose-garden" title="Rose Garden"></div>
+                <div class="theme-option" data-theme="golden-hour" title="Golden Hour"></div>
+                <div class="theme-option" data-theme="deep-teal" title="Deep Teal"></div>
+            </div>
+
+            <div id="trend-graph">
+                <div class="graph-bars" id="graph-bars"></div>
+                <div class="graph-legend">
+                    <div class="legend-item">
+                        <div class="legend-color good"></div>
+                        <span>Good</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color neutral"></div>
+                        <span>Neutral</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color bad"></div>
+                        <span>Bad</span>
+                    </div>
+                </div>
+            </div>
+
             <div id="trends-container">
                 <div class="detail-item">
                     <strong>Most Frequent Mood</strong>
@@ -58,6 +85,8 @@
                     <div id="top-tags-display">No data yet</div>
                 </div>
             </div>
+
+            <button id="export-btn">📥 Export All Data</button>
         </div>
 
         <div id="journal" class="tab-content">
